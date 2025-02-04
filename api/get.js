@@ -30,8 +30,24 @@ export default async function handler(req, res) {
       }
     };
 
+    const fetchXMLWithRetry = async (url, options = {}, retries = 2) => {
+      for (let i = 0; i <= retries; i++) {
+        try {
+          const response = await fetch(url, options);
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return await response.text(); // Return raw XML
+        } catch (error) {
+          console.error(`Error fetching ${url}:`, error.message);
+        }
+      }
+      return "<error>error</error>"; // Return XML formatted error
+    };
+
+    
     const [data0] = await Promise.all([
-      fetchWithErrorHandling(apiUrl0, { headers: { 'Content-Type': 'application/json' } }),
+      fetchXMLWithRetry(apiUrl0, { headers: { 'Content-Type': 'application/json' } }),
     
     ]);
 
