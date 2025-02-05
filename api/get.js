@@ -1,20 +1,19 @@
 export default async function handler(req, res) {
   try {
-    // Set CORS headers to allow cross-origin requests
+    // Set CORS headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
 
-    // Handle preflight OPTIONS request
+    // Handle OPTIONS request
     if (req.method === "OPTIONS") {
       return res.status(200).end();
     }
 
     // Extract query parameters
     const { target0, target1, target2, target3 } = req.query;
-
     if (!target0 || !target1 || !target2 || !target3) {
-      return res.status(400).send("<error>Missing required parameters</error>");
+      return res.status(400).send("Missing required parameters");
     }
 
     // Construct API URL
@@ -25,9 +24,7 @@ export default async function handler(req, res) {
       for (let i = 0; i <= retries; i++) {
         try {
           const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-          }
+          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
           return await response.text(); // Return raw XML response
         } catch (error) {
           console.error(`Error fetching ${url}:`, error.message);
@@ -39,14 +36,29 @@ export default async function handler(req, res) {
     // Fetch XML data
     const xmlData = await fetchXMLWithRetry(apiUrl0);
 
-    // Set response content type to XML
-    res.setHeader("Content-Type", "text/xml");
+    // Parse XML using DOMParser
+    const { DOMParser } = require("xmldom"); // Built-in Node.js module
+    const doc = new DOMParser().parseFromString(xmlData, "text/xml");
 
-    // Send the raw XML response
-    res.status(200).send(xmlData);
+    // Find gebouw_id attribute
+    const attributes = doc.getElementsByTagName("Attribute");
+    let gebouwId = "Not found";
+
+    for (let i = 0; i < attributes.length; i++) {
+      if (attributes[i].getAttribute("name") === "gebouw_id") {
+        gebouwId = attributes[i].getAttribute("value");
+        break;
+      }
+    }
+
+    // Set response type to plain text
+    res.setHeader("Content-Type", "text/plain");
+
+    // Send only the gebouw_id value
+    res.status(200).send(gebouwId);
   } catch (error) {
     console.error(error);
-    res.setHeader("Content-Type", "text/xml");
-    res.status(500).send("<error>Internal Server Error</error>");
+    res.setHeader("Content-Type", "text/plain");
+    res.status(500).send("Internal Server Error");
   }
 }
